@@ -1,0 +1,15 @@
+# Ignore virtual environment
+venv/
+
+# Ignore environment variables
+.env
+
+# Ignore misc.py script file
+Postgresql/misc.py
+
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+*.csv
+*.json
