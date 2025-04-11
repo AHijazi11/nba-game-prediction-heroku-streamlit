@@ -12,8 +12,6 @@ The NBA Game Prediction Project leverages machine learning to predict the outcom
 - [Data Pipeline & Database](#data-pipeline--database)
 - [Installation & Setup](#installation--setup)
 - [Usage & Deployment](#usage--deployment)
-- [Contributing](#contributing)
-- [License](#license)
 - [Further Reading](#further-reading)
 
 ## Overview
