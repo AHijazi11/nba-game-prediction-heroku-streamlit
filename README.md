@@ -1,75 +1,74 @@
 # NBA Game Outcome Prediction on Heroku & Streamlit
 
-[Streamlit App](https://nba-game-predictions-streamlit-49d83933a063.herokuapp.com/)
+[Live App →](https://nba-game-predictions-streamlit-49d83933a063.herokuapp.com/)
 
-The NBA Game Prediction Project leverages machine learning to predict the outcomes of NBA games—showcasing how data-driven insights can be applied to something many people enjoy. It refactors a previous project of mine to be more modular and replaces CSV files with a PostgreSQL database for improved scalability and maintainability. The app, along with its data ingestion and prediction scripts, is deployed on Heroku.
+This project demonstrates how a production-style machine-learning workflow can turn raw NBA data into win-probability forecasts, bookmaker-odds interpretations, and +EV betting signals—all surfaced through a lightweight
+Streamlit front-end running on Heroku. It refactors a previous project of mine to be more modular and replaces CSV files with a PostgreSQL database for improved scalability and maintainability.
 
 ## Table of Contents
+1. [Project Overview](#project-overview)
+2. [Key Features](#key-features)
+3. [Tech-Stack](#tech-stack)
+4. [Data Pipeline & Database](#data-pipeline--database)
+5. [Installation](#installation)
+6. [Running the App](#running-the-app)
+7. [Further Reading](#further-reading)
 
-- [Overview](#overview)
-- [Features](#features)
-- [Tech Stack & Dependencies](#tech-stack--dependencies)
-- [Data Pipeline & Database](#data-pipeline--database)
-- [Installation & Setup](#installation--setup)
-- [Usage & Deployment](#usage--deployment)
-- [Further Reading](#further-reading)
+## Project Overview
 
-## Overview
+As a data scientist I wanted a concise, end-to-end example that combines:
 
-The goal of this project is to leverage machine learning to predict NBA game outcomes, thereby demonstrating its usefulness in an area that excites both NBA fans and machine learning enthusiasts. The app provides updated predictions, advanced analytics, and interactive visualizations through a clean Streamlit interface.
+* **Daily data ingestion** (via *balldontlie* API)  
+* **Modular feature-engineering** (rolling 15-game stats, season & all-time Elo,
+  rest days, travel distance, injury impact)  
+* **Gradient-boosting model** (XGBoost) trained on **5,000 +** historical games  
+* **Interpretation of bookmaker odds** → implied win probabilities, vig
+  removal, and **expected-value (EV)** calculations  
+* **PostgreSQL persistence** and a **Streamlit** dashboard for interactive
+  exploration
 
-Key components include:
-- **Daily Data Updates:** Data is fetched daily from external sources using the balldontlie API to ensure the latest game stats.
-- **Feature Engineering & Predictions:** Modular functions in `preprocess_data_prediction.py` and `preprocess_data_training.py` handle data processing. These functions are imported into `ml_predictions.py` and `ml_training.py` to compute rolling averages, update team Elo ratings, and generate predictions.
-- **Database Integration:** A PostgreSQL database is used to store and manage historical and real-time data—no more CSV files.
-- **Modular Architecture:** The project has been refactored to improve maintainability and ease of extension.
+The application is fully container-free on Heroku: data refresh and model
+inference are triggered by **Heroku Scheduler**, and the web UI is served by a
+single dyno.
 
-## Features
+## Key Features
 
-- **Predictive Analytics:**  
-  Uses machine learning models (including XGBoost and scikit-learn algorithms) to predict game outcomes.
-- **Automated Data Updates:**  
-  - `update_nba_data_api.py` runs daily via Heroku Scheduler to retrieve advanced stats, box scores, player injuries, and game data.
-  - `ml_predictions.py` runs after update_nba_data_api.py to process features and generate predictions.
-- **PostgreSQL Database:**  
-  Utilizes a PostgreSQL database with several key tables, including:
-  - `model_performance`
-  - `nba_game_advanced_stats`
-  - `nba_box_scores`
-  - `nba_active_players`
-  - `nba_player_injuries`
-  - `nba_games`
-  - `nba_predictions`
-  - `team_features`
-- **Companion Repository:**  
-  For further details on data analysis, feature engineering, and model training, please refer to the [NBA Game Outcome ML Repo](https://github.com/AHijazi11/nba-game-outcome-ml).
+| Category | Description |
+|----------|-------------|
+| **Predictive Model** | XGBoost classifier with hyper-parameter tuning; outputs a model-derived home-win probability for every upcoming match-up. |
+| **Bookmaker Odds Parsing** | American odds from DraftKings & FanDuel are converted to decimal format, then to implied probabilities. The house margin (*vig*) is removed so both sides sum to 100%. |
+| **Expected-Value (EV) Calculation** | For each side/book we compute <br> `EV = (p_model × payout) – (1–p_model)` <br>A positive EV indicates theoretical profitability. Cells with the highest EV per game are highlighted. |
+| **Automated ETL** | `update_nba_data_api.py` pulls advanced stats, box scores and injuries every morning; `ml_predictions.py` generates fresh predictions. |
+| **PostgreSQL Schema** | Central tables: `nba_games`, `nba_game_advanced_stats`, `nba_box_scores`, `nba_player_injuries`, `team_features`, `nba_predictions`, `betting_odds`, `model_performance`. |
+| **Streamlit Dashboard** | Four pages: *About*, *Game Predictions* (model vs. books), *Betting Odds* (live odds explorer), *Model Metrics*. |
 
-## Tech Stack & Dependencies
+## Tech-Stack
 
-- **Python Version:** 3.11.5  
-- **Streamlit Version:** 1.44.0  
-- **Dependencies:**
-  - balldontlie==0.1.6
-  - geopy==2.4.1
-  - joblib==1.4.2
-  - numpy==1.24.3
-  - pandas==2.0.3
-  - psycopg2==2.9.10
-  - python-dotenv==1.1.0
-  - scikit_learn==1.3.0
-  - SQLAlchemy==1.4.39
-  - xgboost==3.0.0
+| Layer | Tools / Packages |
+|-------|------------------|
+| **Language** | Python 3.11.5 |
+| **Data & ML** | `pandas` 2.0, `numpy`, `scikit-learn`, `xgboost`, `joblib` |
+| **Geospatial** | `geopy` (travel-distance feature) |
+| **Database** | PostgreSQL 14 / `psycopg2` + `SQLAlchemy` |
+| **API Client** | `balldontlie` 0.1.6 |
+| **Web UI** | `streamlit` 1.44 + `streamlit-option-menu` |
+| **Infra** | Heroku dyno, Heroku Postgres, Heroku Scheduler |
 
-The complete list is available in the `requirements.txt` file.
+Full dependency list in `requirements.txt`.
 
 ## Data Pipeline & Database
 
-### Data Pipeline
+### Daily Flow
 
-- **Data Ingestion:**  
-  The `update_nba_data_api.py` script runs daily (via Heroku Scheduler) to fetch updated NBA data (advanced stats, box scores, injuries, etc.) using the balldontlie API.
-- **Feature Engineering & Prediction:**  
-  Modular functions in `preprocess_data_prediction.py` and `preprocess_data_training.py` process the NBA data. The `ml_predictions.py` script utilizes these functions to calculate features (e.g., 15-game rolling averages, Elo ratings) before generating predictions.
+- **[T]** Heroku Scheduler → `python update_nba_data_api.py`  
+  &nbsp;&nbsp;&nbsp;&nbsp;↳ Pulls previous day’s games, box scores, injuries, player data  
+  &nbsp;&nbsp;&nbsp;&nbsp;↳ Pulls today's games betting odds
+
+- **[T + 1h]** Heroku Scheduler → `python ml_predictions.py`  
+  &nbsp;&nbsp;&nbsp;&nbsp;↳ Merges fresh data with historical features  
+  &nbsp;&nbsp;&nbsp;&nbsp;↳ Updates Elo & rolling metrics  
+  &nbsp;&nbsp;&nbsp;&nbsp;↳ Scores the model and writes to `nba_predictions`  
+  &nbsp;&nbsp;&nbsp;&nbsp;↳ Stores feature snapshots in `team_features`
 
 ### Database Schema
 
@@ -81,14 +80,15 @@ Some key tables in the PostgreSQL database include:
 - **nba_active_players & nba_player_injuries**: Details on active players and any injury-related information.  
 - **nba_games & nba_predictions**: Maintains data on games and the corresponding ML predictions.  
 - **team_features**: Contains calculations for team metrics such as Elo ratings, win streaks, and time in season.
+- **betting_odds**: Contains betting odds for each game from several sportsbooks.
 
-## Installation & Setup
+## Installation
 
 ### Local Setup
 
 1. **Clone the Repository**  
-   `git clone https://github.com/YourUsername/nba-game-prediction-streamlit.git`  
-   `cd nba-game-prediction-streamlit`
+   `git clone https://github.com/AHijazi11/nba-game-prediction-heroku-streamlit.git`  
+   `cd nba-game-prediction-heroku-streamlit`
 2. **Set Up a Virtual Environment**  
    On Linux/Mac:  
    `python -m venv venv`  
@@ -112,19 +112,21 @@ Some key tables in the PostgreSQL database include:
 
 1. **Push Your Code to Heroku**  
    `heroku login`  
+   `heroku create your-heroku-app`  
+   `heroku addons:create heroku-postgresql:hobby-dev`    
    `heroku git:remote -a your-heroku-app-name`  
    `git push heroku main`
-2. **Set Environment Variables on Heroku**  
+3. **Set Environment Variables on Heroku**  
    In the Heroku app’s settings, add the following config vars:  
    - `DATABASE_URL` (from Heroku Postgres)  
    - `BALLDONTLIE_API_KEY`  
    - (Optional) `APP_CONFIG=production`
-3. **Configure Heroku Scheduler**  
+4. **Configure Heroku Scheduler**  
    Add two scheduled jobs:  
    - **Job 1:** `python update_nba_data_api.py` (runs daily)  
    - **Job 2:** `python ml_predictions.py` (runs daily, one hour after Job 1)
 
-## Usage & Deployment
+## Running the App
 
 ### Running Locally
 
@@ -142,5 +144,5 @@ Deploy the code to Heroku (as above). The app will automatically use the environ
 
 ## Further Reading
 
-For more details on the data analysis, feature engineering, and machine learning models used in this project, please refer to the companion repository:  
+Full technical deep-dive (feature engineering, model selection, CV strategy) in the companion repo:  
 [https://github.com/AHijazi11/nba-game-outcome-ml](https://github.com/AHijazi11/nba-game-outcome-ml)
